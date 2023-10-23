@@ -2,6 +2,11 @@
 using RestSharp;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using System;
+using CsvHelper;
+using System.IO;
+using System.Globalization;
+using System.Threading;
 
 namespace PrimespecImport
 {
@@ -9,10 +14,82 @@ namespace PrimespecImport
     {
         static void Main(string[] args)
         {
+            // Set up a timer to trigger every 15 minutes
+            Timer timer = new Timer(Run, null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
 
-            /// Frequency limit: 5 times per 10 minutes, if you have to run it at a greater frequency, store the access token and run access token and feed jobs requests seperately. Access token expires every hour
-            /// individual product structure can be found in the products class down below
-            List<Products> primespecProducts = getInventory();
+            // Prevent the application from exiting immediately
+            Console.WriteLine("Press [Enter] to exit the program.");
+            Console.ReadLine();
+        }
+
+        static void Run(object state)
+        {
+            try
+            {
+                Console.WriteLine($"Program started at {DateTime.Now}.");
+
+                List<Products> primespecProducts = getInventory();
+
+                if (primespecProducts != null && primespecProducts.Count > 0)
+                {
+                    // Print each product to the console
+                    foreach (var product in primespecProducts)
+                    {
+                        Console.WriteLine($"Product: {product.ManufacturePartNumber}, {product.ItemDescription}, {product.Cost}, {product.MSRP}");
+                    }
+
+                    // Write products to a CSV file
+                    string fileName = $"primespec{DateTime.Now:yyyyMMddHHmmss}.csv";
+                    using (var writer = new StreamWriter(fileName))
+                    using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                    {
+                        csv.WriteRecords(primespecProducts);
+                    }
+
+                    Console.WriteLine($"Products downloaded to {fileName}");
+                }
+                else
+                {
+                    Console.WriteLine("No products retrieved.");
+                }
+
+                Console.WriteLine($"Capture products ended at {DateTime.Now}.");
+                Console.WriteLine($"New sync will run in 15 minutes.");
+                Console.WriteLine($"Press Enter to close the app.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+
+        public class Products
+        {
+            [JsonProperty("Manufacture Part Number")]
+            public string ManufacturePartNumber { get; set; }
+
+            [JsonProperty("Item Description")]
+            public string ItemDescription { get; set; }
+            public string Cost { get; set; }
+            public string MSRP { get; set; }
+            public string UPC { get; set; }
+
+            [JsonProperty("Quantity In Stock")]
+            public string QuantityInStock { get; set; }
+            public string Weight { get; set; }
+            public string Category { get; set; }
+
+            [JsonProperty("Manufacturer (UDF)")]
+            public string ManufacturerUDF { get; set; }
+            public string Image { get; set; }
+
+            [JsonProperty("Price Level 9")]
+            public string PriceLevel9 { get; set; }
+        }
+
+        public class PrimespecProducts
+        {
+            public List<Products> data { get; set; }
         }
 
         /// <summary>
@@ -46,34 +123,7 @@ namespace PrimespecImport
             return myDeserializedClass.data;
         }
 
-        public class Products
-        {
-            [JsonProperty("Manufacture Part Number")]
-            public string ManufacturePartNumber { get; set; }
-
-            [JsonProperty("Item Description")]
-            public string ItemDescription { get; set; }
-            public string Cost { get; set; }
-            public string MSRP { get; set; }
-            public string UPC { get; set; }
-
-            [JsonProperty("Quantity In Stock")]
-            public string QuantityInStock { get; set; }
-            public string Weight { get; set; }
-            public string Category { get; set; }
-
-            [JsonProperty("Manufacturer (UDF)")]
-            public string ManufacturerUDF { get; set; }
-            public string Image { get; set; }
-
-            [JsonProperty("Price Level 9")]
-            public string PriceLevel9 { get; set; }
-        }
-
-        public class PrimespecProducts
-        {
-            public List<Products> data { get; set; }
-        }
+       
 
     }
 }
