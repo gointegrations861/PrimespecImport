@@ -15,14 +15,12 @@ namespace PrimespecImport
         static void Main(string[] args)
         {
             // Set up a timer to trigger every 15 minutes
-            Timer timer = new Timer(Run, null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
-
-            // Prevent the application from exiting immediately
-            Console.WriteLine("Press [Enter] to exit the program.");
-            Console.ReadLine();
+            // Timer timer = new Timer(Run, null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
+            Run();
+            RunDescriptions();
         }
 
-        static void Run(object state)
+        static void Run()
         {
             try
             {
@@ -39,7 +37,7 @@ namespace PrimespecImport
                     }
 
                     // Write products to a CSV file
-                    string fileName = $"primespec{DateTime.Now:yyyyMMddHHmmss}.csv";
+                    string fileName = "products.csv";
                     using (var writer = new StreamWriter(fileName))
                     using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
                     {
@@ -54,8 +52,44 @@ namespace PrimespecImport
                 }
 
                 Console.WriteLine($"Capture products ended at {DateTime.Now}.");
-                Console.WriteLine($"New sync will run in 15 minutes.");
-                Console.WriteLine($"Press Enter to close the app.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+        }
+        static void RunDescriptions()
+        {
+            try
+            {
+                Console.WriteLine($"Program started at {DateTime.Now}.");
+
+                List<Descriptions> primespecProducts = getDescription();
+
+                if (primespecProducts != null && primespecProducts.Count > 0)
+                {
+                    // Print each product to the console
+                    foreach (var product in primespecProducts)
+                    {
+                        Console.WriteLine($"Product: {product.PartNo}, {product.ExtendedDescription}");
+                    }
+
+                    // Write products to a CSV file
+                    string fileName = "descriptions.csv";
+                    using (var writer = new StreamWriter(fileName))
+                    using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                    {
+                        csv.WriteRecords(primespecProducts);
+                    }
+
+                    Console.WriteLine($"Descriptions downloaded to {fileName}");
+                }
+                else
+                {
+                    Console.WriteLine("No products retrieved.");
+                }
+
+                Console.WriteLine($"Capture descriptions ended at {DateTime.Now}.");
             }
             catch (Exception ex)
             {
@@ -91,7 +125,20 @@ namespace PrimespecImport
         {
             public List<Products> data { get; set; }
         }
+        public class Descriptions
+        {
+            [JsonProperty("part_no")]
+            public string PartNo { get; set; }
 
+            [JsonProperty("extended_description")]
+            public string ExtendedDescription { get; set; }
+           
+        }
+
+            public class PrimespecDesc
+        {
+            public List<Descriptions> data { get; set; }
+        }
         /// <summary>
         /// This function gets the token required for getting the inventory feeed
         /// </summary>
@@ -123,7 +170,18 @@ namespace PrimespecImport
             return myDeserializedClass.data;
         }
 
-       
+        //https://analyticsapi.zoho.com/api/phil@primespec.com/PRIMESPEC/level 9 description %23aR11-3
 
+        public static List<Descriptions> getDescription()
+        {
+            var client = new RestClient("https://analyticsapi.zoho.com/api/phil@primespec.com/PRIMESPEC/level 9 description?ZOHO_ACTION=EXPORT&ZOHO_API_VERSION=1.0&KEY_VALUE_FORMAT=true&ZOHO_ERROR_FORMAT=JSON&ZOHO_OUTPUT_FORMAT=JSON");
+            client.Timeout = -1;
+            var request = new RestRequest(Method.POST);
+            request.AddHeader("ZANALYTICS-ORGID", "638592711");
+            request.AddHeader("Authorization", "Bearer " + getAccessToken());
+            IRestResponse response = client.Execute(request);
+            PrimespecDesc myDeserializedClass = JsonConvert.DeserializeObject<PrimespecDesc>(response.Content);
+            return myDeserializedClass.data;
+        }
     }
 }
